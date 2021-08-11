@@ -125,9 +125,9 @@ import kotlin.system.exitProcess
  *
  * `--kt-huge-enums` is optional.  When specified, generated enums will use a different
  * representation. Instead of `enum class`, a hierarchy of enum-like classes will be generated
- * that is syntactically equivalent to access from Kotlin  This should
- * be avoided unless you know you need it.  Implies `--lang=kotlin` and mutually-exclusive with
- * `--kt-big-enums`.
+ * that is syntactically equivalent to access from Kotlin.  The value passed in is the number of
+ * enum values per-class. This should be avoided unless you know you need it.  Implies `--lang=kotlin`
+ * and mutually-exclusive with `--kt-big-enums`.
  *
  * `--parcelable` is optional.  When provided, generated types will contain a
  * `Parcelable` implementation.  Kotlin types will use the `@Parcelize` extension.
@@ -384,7 +384,7 @@ class ThriftyCompiler {
             }
 
             if (kotlinHugeEnums > 0) {
-                gen.numValuesPerHugeEnum(kotlinHugeEnums)
+                gen.emitHugeEnumsWithSize(kotlinHugeEnums)
             }
 
             if (kotlinFilePerType) {

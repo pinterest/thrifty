@@ -143,7 +143,7 @@ class KotlinCodeGenerator(
     private var emitJvmName: Boolean = false
     private var emitJvmStatic: Boolean = false
     private var emitBigEnums: Boolean = false
-    private var numValuesPerHugeEnum: Int = -1
+    private var emitHugeEnumsWithSize: Int = -1
     private var failOnUnknownEnumValues: Boolean = true
 
     private var listClassName: ClassName? = null
@@ -262,8 +262,8 @@ class KotlinCodeGenerator(
         this.emitBigEnums = true
     }
 
-    fun numValuesPerHugeEnum(numValuesPerHugeEnum: Int): KotlinCodeGenerator = apply {
-        this.numValuesPerHugeEnum = numValuesPerHugeEnum
+    fun emitHugeEnumsWithSize(hugeEnumsWithSize: Int): KotlinCodeGenerator = apply {
+        this.emitHugeEnumsWithSize = hugeEnumsWithSize
     }
 
     fun failOnUnknownEnumValues(value: Boolean = true): KotlinCodeGenerator = apply {
@@ -284,7 +284,7 @@ class KotlinCodeGenerator(
 
         schema.typedefs.forEach { typedefsByNamespace.put(it.kotlinNamespace, generateTypeAlias(it)) }
         schema.enums.forEach {
-            if (numValuesPerHugeEnum <= 0 || it.members.size <= numValuesPerHugeEnum) {
+            if (emitHugeEnumsWithSize <= 0 || it.members.size <= emitHugeEnumsWithSize) {
                 specsByNamespace.put(it.kotlinNamespace, generateEnumClass(it))
             } else {
                 filesByNamespace.put(it.kotlinNamespace, generateHugeEnumClasses(it))
@@ -633,7 +633,7 @@ class KotlinCodeGenerator(
     ): List<TypeSpec> {
         val typeSpecs = mutableListOf<TypeSpec>()
         val numValues = enumType.members.size
-        val numClasses = ceil(numValues / numValuesPerHugeEnum.toDouble()).toInt()
+        val numClasses = ceil(numValues / emitHugeEnumsWithSize.toDouble()).toInt()
         var previousClassName: ClassName? = null
 
         (0 until numClasses).forEach { numClass ->
@@ -673,8 +673,8 @@ class KotlinCodeGenerator(
 
             val companion = TypeSpec.companionObjectBuilder()
 
-            val startIdx = numClass * numValuesPerHugeEnum
-            val endIdx = min((numClass + 1) * numValuesPerHugeEnum, numValues)
+            val startIdx = numClass * emitHugeEnumsWithSize
+            val endIdx = min((numClass + 1) * emitHugeEnumsWithSize, numValues)
 
             // Generate the set of values for this class
             (startIdx until endIdx).forEach { curIdx ->
