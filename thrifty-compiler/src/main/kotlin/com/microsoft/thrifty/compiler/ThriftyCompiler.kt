@@ -33,6 +33,7 @@ import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.options.transformAll
 import com.github.ajalt.clikt.parameters.options.validate
 import com.github.ajalt.clikt.parameters.types.choice
+import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
 import com.microsoft.thrifty.gen.NullabilityAnnotationType
 import com.microsoft.thrifty.gen.ThriftyCodeGenerator
@@ -63,6 +64,7 @@ import kotlin.system.exitProcess
  * [--kt-struct-builders]
  * [--kt-jvm-static]
  * [--kt-big-enums]
+ * [--kt-huge-enums]
  * [--parcelable]
  * [--use-android-annotations]
  * [--nullability-annotation-type=[none|android-support|androidx]]
@@ -118,7 +120,14 @@ import kotlin.system.exitProcess
  * representation.  Rather than each enum member containing its value, a single large
  * function mapping enums to values will be generated.  This works around some JVM class-size
  * limitations in some extreme cases, such as an enum with thousands of members.  This should
- * be avoided unless you know you need it.  Implies `--lang=kotlin`.
+ * be avoided unless you know you need it.  Implies `--lang=kotlin` and mutually-exclusive with
+ * `--kt-huge-enums`.
+ *
+ * `--kt-huge-enums` is optional.  When specified, generated enums will use a different
+ * representation. Instead of `enum class`, a hierarchy of enum-like classes will be generated
+ * that is syntactically equivalent to access from Kotlin.  The value passed in is the number of
+ * enum values per-class. This should be avoided unless you know you need it.  Implies `--lang=kotlin`
+ * and mutually-exclusive with `--kt-big-enums`.
  *
  * `--parcelable` is optional.  When provided, generated types will contain a
  * `Parcelable` implementation.  Kotlin types will use the `@Parcelize` extension.
@@ -245,6 +254,10 @@ class ThriftyCompiler {
         val kotlinBigEnums: Boolean by option("--kt-big-enums")
                 .flag("--kt-no-big-enums", default = false)
 
+        val kotlinHugeEnums: Int by option("--kt-huge-enums")
+            .int()
+            .default(-1)
+
         val serviceType: ServiceInterfaceType by option(
                 "--service-type",
                 help = "The style of interface for generated service clients; default is callbacks.")
@@ -292,6 +305,7 @@ class ThriftyCompiler {
                 kotlinEmitJvmName -> Language.KOTLIN
                 kotlinEmitJvmStatic -> Language.KOTLIN
                 kotlinBigEnums -> Language.KOTLIN
+                kotlinHugeEnums > 0 -> Language.KOTLIN
                 serviceType == ServiceInterfaceType.COROUTINE -> Language.KOTLIN
                 nullabilityAnnotationType != NullabilityAnnotationType.NONE -> Language.JAVA
                 else -> null
@@ -357,8 +371,20 @@ class ThriftyCompiler {
                 gen.emitJvmStatic()
             }
 
+            if (kotlinBigEnums && kotlinHugeEnums > 0) {
+                TermUi.echo(
+                    "Error: --kt-big-enums and --kt-huge-enums are mutually exclusive. Please choose one.",
+                    err = true
+                )
+                Runtime.getRuntime().exit(1)
+            }
+
             if (kotlinBigEnums) {
                 gen.emitBigEnums()
+            }
+
+            if (kotlinHugeEnums > 0) {
+                gen.emitHugeEnumsWithSize(kotlinHugeEnums)
             }
 
             if (kotlinFilePerType) {
